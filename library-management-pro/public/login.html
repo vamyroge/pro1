@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in - Library Pro</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="brand">
+        <div class="logo"><i data-lucide="library"></i></div>
+        <div>
+          <h1>Library Pro</h1>
+          <p class="sub">Sign in to manage your library</p>
+        </div>
+      </div>
+      <form id="loginForm">
+        <div class="form-row">
+          <label for="username">Username</label>
+          <input id="username" name="username" autocomplete="username" required />
+        </div>
+        <div class="form-row">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+        </div>
+        <button class="btn primary" type="submit" id="loginBtn" style="width:100%; justify-content:center;">
+          <i data-lucide="log-in"></i>
+          <span>Sign in</span>
+        </button>
+      </form>
+      <p class="footer-note">Default admin: <code>admin / Admin@123</code> (created by seed)</p>
+    </div>
+  </div>
+
+  <script src="/js/utils.js"></script>
+  <script>
+    // If already logged in, redirect
+    if (LMP.getToken()) {
+      LMP.apiFetch('GET', '/api/auth/me').then(() => { window.location.href = '/dashboard'; }).catch(() => LMP.clearSession());
+    }
+
+    const form = document.getElementById('loginForm');
+    const btn = document.getElementById('loginBtn');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = form.username.value.trim();
+      const password = form.password.value;
+      if (!username || !password) {
+        LMP.showToast({ type: 'warning', message: 'Please enter username and password' });
+        return;
+      }
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+      try {
+        const res = await LMP.apiFetch('POST', '/api/auth/login', { username, password });
+        LMP.setToken(res.token);
+        LMP.setUser(res.user);
+        LMP.showToast({ type: 'success', message: 'Welcome back!' });
+        setTimeout(() => { window.location.href = '/dashboard'; }, 400);
+      } catch (err) {
+        LMP.showToast({ type: 'error', title: 'Login failed', message: err.message });
+      } finally {
+        btn.disabled = false; btn.innerHTML = '<i data-lucide="log-in"></i><span>Sign in</span>';
+        if (window.lucide) window.lucide.createIcons({ attrs: { 'stroke-width': 1.75 } });
+      }
+    });
+    if (window.lucide) window.lucide.createIcons({ attrs: { 'stroke-width': 1.75 } });
+  </script>
+</body>
+</html>

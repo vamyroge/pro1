@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Library Management Pro</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo"><i data-lucide="library"></i></div>
+        <div>Library Pro</div>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item" data-link="/dashboard" data-route="/dashboard"><i data-lucide="layout-dashboard"></i> Dashboard</a>
+        <a class="nav-item" data-link="/books" data-route="/books"><i data-lucide="book-open"></i> Books</a>
+        <a class="nav-item" data-link="/readers" data-route="/readers"><i data-lucide="users"></i> Readers</a>
+        <a class="nav-item" data-link="/borrowings" data-route="/borrowings"><i data-lucide="repeat"></i> Borrowing</a>
+        <a class="nav-item" data-link="/reports" data-route="/reports"><i data-lucide="bar-chart-3"></i> Reports</a>
+        <a class="nav-item" data-link="/settings" data-route="/settings"><i data-lucide="settings"></i> Settings</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="avatar" data-avatar>--</div>
+        <div class="user-info">
+          <div class="name" data-username>—</div>
+          <div class="role" data-role>—</div>
+        </div>
+        <button class="icon-btn" data-logout title="Logout"><i data-lucide="log-out"></i></button>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <button class="menu-btn" data-menu><i data-lucide="menu"></i></button>
+        <div class="search">
+          <i data-lucide="search"></i>
+          <input type="text" id="globalSearch" placeholder="Search books, readers..." />
+        </div>
+        <div class="topbar-right">
+          <div class="dropdown">
+            <button class="icon-btn" data-dropdown title="Notifications"><i data-lucide="bell"></i></button>
+            <div class="dropdown-menu">
+              <a class="dropdown-item" href="/borrowings">View borrowings</a>
+              <a class="dropdown-item" href="/reports">View reports</a>
+            </div>
+          </div>
+          <div class="dropdown">
+            <button class="icon-btn" data-dropdown title="Account"><i data-lucide="user"></i></button>
+            <div class="dropdown-menu">
+              <a class="dropdown-item" data-link="/settings"><i data-lucide="settings"></i> Settings</a>
+              <a class="dropdown-item" data-logout href="#"><i data-lucide="log-out"></i> Logout</a>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="content" id="view"></main>
+    </div>
+  </div>
+
+  <!-- Generic Modal -->
+  <div class="modal-backdrop" id="modalGeneric">
+    <div class="modal" id="modalGenericBox">
+      <div class="modal-header">
+        <h3 id="modalGenericTitle">Title</h3>
+        <button class="icon-btn" onclick="LMP.closeModal('modalGeneric')"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" id="modalGenericBody"></div>
+      <div class="modal-footer" id="modalGenericFooter"></div>
+    </div>
+  </div>
+
+  <script src="/js/utils.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script src="/js/books.js"></script>
+  <script src="/js/readers.js"></script>
+  <script src="/js/borrowings.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

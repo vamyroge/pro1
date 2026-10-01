@@ -1,0 +1,1270 @@
+Hãy xây dựng cho tôi một ứng dụng Web Full-stack hoàn chỉnh có tên **Library Management Pro** — hệ thống quản lý thư viện hiện đại sử dụng **Supabase PostgreSQL** làm database.
+
+## MỤC TIÊU
+
+Đây phải là một ứng dụng thực sự chạy được, không phải mockup.
+
+Yêu cầu bắt buộc:
+
+* Frontend giao tiếp với Backend thông qua REST API.
+* Backend sử dụng Supabase PostgreSQL làm database thật.
+* Không sử dụng MongoDB, MongoDB Atlas hoặc Mongoose.
+* Không dùng localStorage để thay thế database.
+* Có đầy đủ CRUD.
+* Có authentication cho thủ thư/admin.
+* Có validation ở frontend và backend.
+* Có xử lý lỗi rõ ràng.
+* Responsive desktop/tablet/mobile.
+* UI hiện đại theo phong cách SaaS Dashboard.
+* Không dùng dữ liệu giả thay cho API.
+* Không để TODO hoặc chức năng chưa hoàn thành.
+* Tự cài package còn thiếu.
+* Tự chạy kiểm tra bằng terminal.
+* Tự sửa lỗi nếu phát hiện.
+* Chỉ kết thúc sau khi kiểm tra ứng dụng thực tế.
+
+---
+
+# 1. TECH STACK
+
+## Frontend
+
+* HTML5
+* CSS3
+* TailwindCSS CDN hoặc CSS tự viết
+* Vanilla JavaScript ES6+
+* Fetch API
+* Chart.js
+* Lucide Icons
+
+Không sử dụng:
+
+* React
+* Vue
+* Next.js
+
+## Backend
+
+* Node.js
+* Express.js
+* Supabase
+* JWT hoặc Supabase Auth
+* bcryptjs nếu tự xây authentication
+* dotenv
+* helmet
+* cors
+* express-rate-limit
+
+## Database
+
+Sử dụng:
+
+**Supabase PostgreSQL**
+
+Không sử dụng:
+
+* MongoDB
+* MongoDB Atlas
+* Mongoose
+* Firebase
+
+Environment variables:
+
+```env
+SUPABASE_URL=
+SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SECRET_KEY=
+JWT_SECRET=
+```
+
+**QUAN TRỌNG:**
+
+* Không hard-code Secret Key.
+* Không expose Secret Key ra frontend.
+* Không sử dụng `NEXT_PUBLIC_` vì project không dùng Next.js.
+* Frontend chỉ được sử dụng public/publishable key khi thực sự cần.
+* Backend giữ secret key ở server-side.
+* Không commit `.env`.
+
+---
+
+# 2. CẤU TRÚC PROJECT
+
+Tạo project:
+
+```text
+library-management-pro/
+│
+├── public/
+│   ├── index.html
+│   ├── login.html
+│   │
+│   ├── css/
+│   │   └── style.css
+│   │
+│   └── js/
+│       ├── app.js
+│       ├── auth.js
+│       ├── books.js
+│       ├── readers.js
+│       ├── borrowings.js
+│       ├── dashboard.js
+│       └── utils.js
+│
+├── api/
+│   └── index.js
+│
+├── config/
+│   └── supabase.js
+│
+├── middleware/
+│   ├── auth.js
+│   └── errorHandler.js
+│
+├── routes/
+│   ├── auth.js
+│   ├── books.js
+│   ├── readers.js
+│   ├── borrowings.js
+│   └── dashboard.js
+│
+├── scripts/
+│   ├── setup-db.sql
+│   ├── seed.js
+│   └── create-admin.js
+│
+├── .env.example
+├── .gitignore
+├── package.json
+├── vercel.json
+└── README.md
+```
+
+Có thể thay đổi cấu trúc nếu cần, nhưng phải giữ code sạch và dễ bảo trì.
+
+---
+
+# 3. SUPABASE DATABASE
+
+Tạo SQL schema hoàn chỉnh trong:
+
+```text
+scripts/setup-db.sql
+```
+
+Database phải có các bảng:
+
+```text
+users
+books
+readers
+borrowings
+activity_logs
+```
+
+---
+
+# 4. BOOKS TABLE
+
+Tạo bảng `books`:
+
+```text
+id
+title
+isbn
+author
+category
+publisher
+publish_year
+quantity
+available_quantity
+shelf
+description
+cover_url
+created_at
+updated_at
+```
+
+Yêu cầu:
+
+* `id` UUID hoặc BIGINT.
+* `title` NOT NULL.
+* `isbn` UNIQUE.
+* `quantity >= 0`.
+* `available_quantity >= 0`.
+* `available_quantity <= quantity`.
+* `publish_year` hợp lệ.
+* `created_at` tự động.
+* `updated_at` tự động.
+
+Tạo index cho:
+
+* title
+* isbn
+* author
+* category
+
+---
+
+# 5. READERS TABLE
+
+Tạo:
+
+```text
+readers
+```
+
+Fields:
+
+```text
+id
+reader_code
+full_name
+email
+phone
+class_name
+address
+status
+created_at
+updated_at
+```
+
+Validation:
+
+* reader_code UNIQUE.
+* email hợp lệ nếu được cung cấp.
+* full_name bắt buộc.
+* status:
+
+```text
+ACTIVE
+INACTIVE
+```
+
+Tạo index cho:
+
+* reader_code
+* full_name
+* email
+
+---
+
+# 6. BORROWINGS TABLE
+
+Tạo:
+
+```text
+borrowings
+```
+
+Fields:
+
+```text
+id
+reader_id
+book_id
+borrow_date
+due_date
+return_date
+status
+created_at
+updated_at
+```
+
+Foreign key:
+
+```text
+reader_id → readers.id
+book_id → books.id
+```
+
+Status:
+
+```text
+BORROWING
+RETURNED
+OVERDUE
+```
+
+Không được phép tạo borrowing với reader hoặc book không tồn tại.
+
+---
+
+# 7. USERS
+
+Tạo authentication cho:
+
+```text
+ADMIN
+LIBRARIAN
+```
+
+Có thể sử dụng Supabase Auth nếu phù hợp.
+
+Nếu sử dụng authentication riêng:
+
+```text
+users
+├── id
+├── username
+├── password_hash
+├── role
+└── created_at
+```
+
+Password phải hash bằng bcrypt.
+
+Không hard-code password thật.
+
+Tạo script:
+
+```text
+scripts/create-admin.js
+```
+
+để tạo admin thông qua terminal.
+
+Ví dụ:
+
+```bash
+node scripts/create-admin.js
+```
+
+Script phải yêu cầu password hoặc đọc từ environment variable.
+
+Không ghi password vào source code.
+
+---
+
+# 8. SUPABASE CLIENT
+
+Tạo:
+
+```text
+config/supabase.js
+```
+
+Backend phải lấy:
+
+```env
+SUPABASE_URL
+SUPABASE_SECRET_KEY
+```
+
+từ environment.
+
+Không hard-code.
+
+Tạo Supabase client server-side.
+
+Không expose secret key cho frontend.
+
+---
+
+# 9. AUTHENTICATION
+
+API:
+
+```text
+POST /api/auth/login
+POST /api/auth/logout
+GET  /api/auth/me
+```
+
+Login:
+
+```json
+{
+  "username": "...",
+  "password": "..."
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "token": "...",
+  "user": {
+    "id": "...",
+    "username": "...",
+    "role": "ADMIN"
+  }
+}
+```
+
+Các API quản trị phải yêu cầu authentication.
+
+Middleware phải:
+
+1. đọc Authorization header.
+2. kiểm tra Bearer token.
+3. xác minh token.
+4. lấy user.
+5. cho phép request tiếp tục.
+
+Token không hợp lệ:
+
+```http
+401 Unauthorized
+```
+
+Không được bypass authentication.
+
+---
+
+# 10. BOOK MANAGEMENT
+
+API:
+
+```text
+GET    /api/books
+GET    /api/books/:id
+POST   /api/books
+PUT    /api/books/:id
+DELETE /api/books/:id
+```
+
+Chức năng:
+
+* Thêm sách.
+* Sửa sách.
+* Xóa sách.
+* Xem chi tiết.
+* Search.
+* Filter.
+* Pagination.
+* Sorting.
+* Hiển thị available quantity.
+
+Search:
+
+```text
+?search=harry
+```
+
+Filter:
+
+```text
+?category=Novel
+?author=...
+?status=AVAILABLE
+```
+
+Pagination:
+
+```text
+?page=1&limit=10
+```
+
+Sorting:
+
+```text
+?sort=title
+?sort=created_at
+?sort=quantity
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": [],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 100,
+    "totalPages": 10
+  }
+}
+```
+
+Backend phải query trực tiếp Supabase/PostgreSQL.
+
+Không lấy toàn bộ database về frontend rồi mới filter.
+
+---
+
+# 11. READER MANAGEMENT
+
+API:
+
+```text
+GET    /api/readers
+GET    /api/readers/:id
+POST   /api/readers
+PUT    /api/readers/:id
+DELETE /api/readers/:id
+```
+
+Chức năng:
+
+* CRUD.
+* Search.
+* Filter.
+* Pagination.
+* Detail.
+
+Search:
+
+```text
+?search=Nguyen
+```
+
+Có thể tìm theo:
+
+* full_name
+* reader_code
+* email
+
+Không cho phép xóa reader nếu đang có borrowing chưa trả.
+
+Trả về lỗi rõ ràng:
+
+```json
+{
+  "success": false,
+  "message": "Reader has active borrowings"
+}
+```
+
+---
+
+# 12. BORROW BOOK
+
+API:
+
+```text
+GET /api/borrowings
+POST /api/borrowings
+PUT /api/borrowings/:id/return
+```
+
+Khi mượn sách:
+
+1. Kiểm tra reader tồn tại.
+2. Kiểm tra book tồn tại.
+3. Kiểm tra `available_quantity > 0`.
+4. Kiểm tra due date hợp lệ.
+5. Tạo borrowing.
+6. Giảm available_quantity.
+7. Tạo activity log.
+8. Trả kết quả cho frontend.
+
+Không được cho mượn nếu:
+
+```text
+available_quantity <= 0
+```
+
+---
+
+# 13. TRANSACTION / DATA CONSISTENCY
+
+Đây là phần quan trọng.
+
+Không được để tình trạng:
+
+```text
+borrowing tạo thành công
+nhưng available_quantity không giảm
+```
+
+hoặc:
+
+```text
+return thành công
+nhưng available_quantity không tăng
+```
+
+Sử dụng transaction hoặc PostgreSQL RPC/function phù hợp với Supabase để đảm bảo thao tác mượn/trả là atomic.
+
+Nếu transaction thất bại:
+
+* rollback.
+* không tạo borrowing giả.
+* không thay đổi quantity sai.
+
+---
+
+# 14. RETURN BOOK
+
+Khi trả sách:
+
+```text
+PUT /api/borrowings/:id/return
+```
+
+Backend phải:
+
+1. Kiểm tra borrowing tồn tại.
+2. Kiểm tra status hiện tại.
+3. Nếu đã RETURNED → từ chối.
+4. Ghi return_date.
+5. Chuyển status thành RETURNED.
+6. Tăng available_quantity.
+7. Tạo activity log.
+
+Không được tăng quantity hai lần.
+
+---
+
+# 15. OVERDUE
+
+Không cần cron job.
+
+Khi query:
+
+Nếu:
+
+```text
+current date > due_date
+AND status = BORROWING
+```
+
+thì hiển thị:
+
+```text
+OVERDUE
+```
+
+Dashboard phải hiển thị:
+
+* Tổng sách quá hạn.
+* Tổng sách đang mượn.
+* Danh sách reader quá hạn.
+* Số ngày quá hạn.
+
+Có thể xử lý bằng SQL query hoặc PostgreSQL view/function.
+
+Không cần chạy cron.
+
+---
+
+# 16. DASHBOARD
+
+API:
+
+```text
+GET /api/dashboard/stats
+```
+
+Dashboard:
+
+### Cards
+
+* Tổng số sách.
+* Tổng số độc giả.
+* Sách đang mượn.
+* Sách quá hạn.
+* Sách còn trong thư viện.
+* Tổng lượt mượn.
+* Tổng lượt trả.
+
+### Charts
+
+Chart 1:
+
+```text
+Borrowings trong 7 ngày gần nhất
+```
+
+Chart 2:
+
+```text
+Books theo category
+```
+
+Chart 3:
+
+```text
+BORROWING vs RETURNED vs OVERDUE
+```
+
+Backend phải thực hiện aggregation/query tại PostgreSQL/Supabase.
+
+Không tải toàn bộ database xuống frontend để tính.
+
+---
+
+# 17. ACTIVITY LOG
+
+Tạo bảng:
+
+```text
+activity_logs
+```
+
+Fields:
+
+```text
+id
+user_id
+action
+entity_type
+entity_id
+description
+created_at
+```
+
+Ví dụ:
+
+```text
+Nguyễn Văn A mượn sách Clean Code
+Trần Văn B trả sách Dune
+Admin thêm sách Atomic Habits
+```
+
+Dashboard hiển thị hoạt động mới nhất trước.
+
+API:
+
+```text
+GET /api/dashboard/activity
+```
+
+---
+
+# 18. FRONTEND UI
+
+Phong cách:
+
+**Modern SaaS Dashboard**
+
+Layout:
+
+```text
+SIDEBAR
+├── Dashboard
+├── Books
+├── Readers
+├── Borrowing
+├── Reports
+└── Settings
+```
+
+Topbar:
+
+```text
+Search
+Notifications
+User profile
+Logout
+```
+
+Dashboard:
+
+* Statistic cards.
+* Charts.
+* Recent activity.
+* Overdue table.
+
+Books:
+
+* Data table.
+* Search.
+* Filters.
+* Pagination.
+* Add modal.
+* Edit modal.
+* Delete confirmation.
+
+Readers:
+
+* Data table.
+* Search.
+* Filters.
+* CRUD.
+
+Borrowing:
+
+* Active borrowings.
+* Overdue.
+* Return action.
+* Borrow modal.
+
+---
+
+# 19. UX
+
+Phải có:
+
+* Loading skeleton.
+* Spinner.
+* Empty state.
+* Error state.
+* Toast notification.
+* Confirmation modal.
+* Form validation.
+* Disabled submit button.
+* Responsive sidebar.
+* Mobile layout.
+* Dark/light visual hierarchy phù hợp.
+
+Không sử dụng giao diện HTML mặc định.
+
+---
+
+# 20. SEARCH DEBOUNCE
+
+Search frontend phải debounce:
+
+```text
+300–500ms
+```
+
+Ví dụ:
+
+```text
+Người dùng nhập "Harry"
+```
+
+Không gửi:
+
+```text
+H
+Ha
+Har
+Harr
+Harry
+```
+
+mà chỉ gửi request sau khi người dùng dừng nhập.
+
+---
+
+# 21. VALIDATION
+
+Frontend:
+
+* Required fields.
+* Email.
+* Number range.
+* Date validation.
+* Empty string.
+* Duplicate ISBN handling.
+
+Backend:
+
+* Validate mọi input.
+* Không tin dữ liệu từ frontend.
+* Validate ID.
+* Validate enum.
+* Validate quantity.
+* Validate dates.
+
+---
+
+# 22. ERROR HANDLING
+
+Tạo:
+
+```text
+middleware/errorHandler.js
+```
+
+Format:
+
+```json
+{
+  "success": false,
+  "message": "Something went wrong"
+}
+```
+
+Không trả stack trace production.
+
+Frontend phải:
+
+* Hiển thị toast.
+* Không crash.
+* Khôi phục trạng thái button.
+* Hiển thị lỗi form.
+* Hiển thị error state.
+
+---
+
+# 23. SECURITY
+
+Bắt buộc:
+
+* helmet.
+* cors.
+* express-rate-limit.
+* authentication middleware.
+* password hashing nếu dùng custom auth.
+* input validation.
+* JWT validation nếu dùng JWT.
+* Environment variables.
+* `.gitignore`.
+* Không commit `.env`.
+* Không expose Supabase Secret Key.
+* Không log password.
+* Không log secret key.
+* Không hard-code database credentials.
+
+Login phải có rate limiting.
+
+---
+
+# 24. API HEALTH CHECK
+
+Tạo:
+
+```text
+GET /api/health
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "Library API is running"
+}
+```
+
+Có thể kiểm tra trạng thái database nếu phù hợp.
+
+---
+
+# 25. SAMPLE DATA
+
+Tạo:
+
+```text
+scripts/seed.js
+```
+
+Seed:
+
+* 10 books.
+* 5 readers.
+* Một số borrowing records.
+* Activity logs.
+
+Không tự động seed khi server khởi động.
+
+Chỉ chạy:
+
+```bash
+node scripts/seed.js
+```
+
+Không được overwrite production database ngoài ý muốn.
+
+---
+
+# 26. ENVIRONMENT
+
+Tạo:
+
+```text
+.env.example
+```
+
+Nội dung:
+
+```env
+SUPABASE_URL=
+SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SECRET_KEY=
+JWT_SECRET=
+PORT=3000
+```
+
+Không đưa giá trị thật vào `.env.example`.
+
+---
+
+# 27. PACKAGE.JSON
+
+Tạo scripts:
+
+```json
+{
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "node --watch api/index.js",
+    "seed": "node scripts/seed.js",
+    "create-admin": "node scripts/create-admin.js"
+  }
+}
+```
+
+Tự cài package nếu thiếu.
+
+---
+
+# 28. VERCEL
+
+Tạo:
+
+```text
+vercel.json
+```
+
+Yêu cầu:
+
+* `/` → `public/index.html`
+* `/login` → `public/login.html`
+* `/api/*` → backend serverless function.
+* Static assets hoạt động.
+* Không tạo routing thừa.
+* Không dùng cấu hình không tương thích Vercel.
+
+Kiểm tra kiến trúc Express có tương thích serverless environment.
+
+Không giả lập deployment thành công.
+
+---
+
+# 29. README
+
+README phải ghi:
+
+* Project overview.
+* Tech stack.
+* Installation.
+* Supabase setup.
+* Chạy `setup-db.sql`.
+* Environment variables.
+* Create admin.
+* Seed data.
+* Local development.
+* API documentation.
+* Authentication.
+* Deployment Vercel.
+* GitHub setup.
+
+API documentation:
+
+```text
+METHOD | ENDPOINT | AUTH | DESCRIPTION
+```
+
+Bao gồm toàn bộ API.
+
+---
+
+# 30. TEST
+
+Sau khi code xong phải thực sự chạy terminal và kiểm tra:
+
+```bash
+npm install
+npm run dev
+```
+
+Kiểm tra:
+
+```text
+GET /api/health
+POST /api/auth/login
+GET /api/auth/me
+GET /api/books
+POST /api/books
+PUT /api/books/:id
+DELETE /api/books/:id
+GET /api/readers
+POST /api/readers
+PUT /api/readers/:id
+DELETE /api/readers/:id
+GET /api/borrowings
+POST /api/borrowings
+PUT /api/borrowings/:id/return
+GET /api/dashboard/stats
+GET /api/dashboard/activity
+```
+
+Có thể tạo:
+
+```text
+scripts/test-api.js
+```
+
+để tự động kiểm tra API quan trọng.
+
+Nếu có lỗi:
+
+1. Đọc lỗi.
+2. Xác định nguyên nhân.
+3. Sửa code.
+4. Chạy lại.
+5. Test regression.
+6. Tiếp tục cho đến khi hoạt động.
+
+Không được chỉ nói:
+
+```text
+"Bạn hãy tự sửa."
+```
+
+---
+
+# 31. GIT
+
+Kiểm tra:
+
+```bash
+git --version
+gh --version
+```
+
+Sau đó:
+
+```bash
+git init
+git add .
+git commit -m "feat: build library management system"
+```
+
+Nếu GitHub CLI đã login:
+
+```bash
+gh repo create library-management-pro --public --source=. --push
+```
+
+Nếu repository đã tồn tại:
+
+* Không tạo repository mới.
+* Push vào repository hiện tại.
+
+Không giả lập GitHub thành công.
+
+---
+
+# 32. VERCEL DEPLOY
+
+Kiểm tra:
+
+```bash
+vercel --version
+```
+
+Sau đó:
+
+```bash
+vercel --prod --yes
+```
+
+Nếu thiếu authentication:
+
+Không giả lập thành công.
+
+Thông báo chính xác:
+
+```text
+Cần người dùng đăng nhập Vercel bằng:
+vercel login
+```
+
+Nếu thiếu environment variables:
+
+Thông báo chính xác variables nào còn thiếu.
+
+Không bịa URL.
+
+Nếu deploy thành công:
+
+```text
+========================================
+DEPLOY SUCCESS
+========================================
+
+GitHub: <REAL URL>
+
+Vercel: <REAL URL>
+
+API: <REAL URL>/api/health
+
+========================================
+```
+
+---
+
+# 33. FINAL CHECKLIST
+
+Trước khi kết thúc phải tự kiểm tra:
+
+```text
+[ ] Frontend chạy
+[ ] Backend chạy
+[ ] Supabase connection hoạt động
+[ ] Database schema đúng
+[ ] Login hoạt động
+[ ] Authentication hoạt động
+[ ] CRUD Books
+[ ] CRUD Readers
+[ ] Borrow hoạt động
+[ ] Return hoạt động
+[ ] Quantity consistency
+[ ] Overdue logic
+[ ] Search
+[ ] Debounce
+[ ] Filter
+[ ] Pagination
+[ ] Dashboard
+[ ] PostgreSQL aggregation
+[ ] Charts
+[ ] Activity logs
+[ ] Toast
+[ ] Loading state
+[ ] Empty state
+[ ] Error handling
+[ ] Responsive
+[ ] Helmet
+[ ] CORS
+[ ] Rate limiting
+[ ] Environment variables
+[ ] .env.example
+[ ] .gitignore
+[ ] README
+[ ] API health check
+[ ] Git commit
+[ ] GitHub push
+[ ] Vercel deployment
+```
+
+# QUY TẮC CUỐI CÙNG
+
+Bắt đầu bằng việc:
+
+1. Kiểm tra thư mục hiện tại.
+2. Kiểm tra Node.js/npm.
+3. Kiểm tra Git/GitHub CLI/Vercel CLI nếu có.
+4. Kiểm tra các environment variables Supabase.
+5. Tạo project.
+6. Cài dependencies.
+7. Tạo database schema.
+8. Tạo backend.
+9. Tạo REST API.
+10. Tạo frontend.
+11. Kết nối frontend → REST API → Supabase.
+12. Test toàn bộ.
+13. Sửa lỗi.
+14. Git commit.
+15. Push GitHub nếu đã authenticated.
+16. Deploy Vercel nếu đã authenticated.
+
+**Không được dùng mock database.**
+
+**Không được dùng localStorage làm database chính.**
+
+**Không được dùng MongoDB.**
+
+**Không được bỏ qua chức năng quan trọng để giảm độ phức tạp.**
+
+**Không được tuyên bố hoàn thành nếu chưa thực sự kiểm tra bằng terminal.**
+
+Ưu tiên theo thứ tự:
+
+1. Chức năng thực tế.
+2. Database đúng logic.
+3. API đúng.
+4. Security.
+5. Code sạch.
+6. UI/UX đẹp.
+7. Deploy được.
